@@ -25,6 +25,7 @@ This project is a Node.js server built with **Express** and **TypeScript**. It p
    git clone https://github.com/denzubechi/data-fetch-api-.git
    cd data-fetch-api
    npm install
+   npm start
    ```
 
 ## Usage
