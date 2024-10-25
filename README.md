@@ -35,6 +35,8 @@ The server periodically fetches data and makes it accessible through an API endp
 
 /data-fetch-api ├── src │ ├── interfaces.ts # TypeScript interfaces for types │ ├── server.ts # Main server code │ ├── dataStore.ts # Data storage and fetching logic ├── tsconfig.json └── package.json
 
+### Added mongo url,can add yours for testing.
+
 ## API Endpoints
 
 - **GET** `/api/photos`
@@ -45,7 +47,25 @@ The server periodically fetches data and makes it accessible through an API endp
 
 ## Implementation Details
 
-### Data Fetching and Storage
+## Data Storage and Upsert Behavior
+
+The `fetchData` function in this application fetches data from an external API every 1 minute and stores it in MongoDB. This process is handled by the `setInterval` function, which is set to 60000 milliseconds (1 minute).
+
+### Upsert Mechanism
+
+When storing data, the application uses MongoDB's **upsert** option in `updateOne`, which performs the following actions:
+
+1. **Insert**: If a document with a given `id` does not exist in MongoDB, a new document is inserted.
+2. **Update**: If a document with the same `id` already exists, the existing document is updated with the latest data.
+
+### Console Logging Example
+
+The application logs each operation in the console, indicating whether each document was newly inserted or updated. Here are examples of the log messages you might see:
+
+- **"Inserted new document with id: 281"** — A new document was created in MongoDB because no existing document with `id: 281` was found.
+- **"Updated existing document with id: 281"** — An existing document was found in MongoDB with `id: 281`, and it was updated with the latest data from the API.
+
+This logging helps track the storage process and confirms that MongoDB is receiving and handling data correctly every minute.
 
 1. **Data Fetching**: The server fetches data every 1 minute from `https://jsonplaceholder.typicode.com/photos`.
 2. **Deduplication**: The data is stored in a `Map` (in-memory store) to ensure no duplicate items are saved.

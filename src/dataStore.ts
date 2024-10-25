@@ -1,7 +1,9 @@
 import http from "http";
-import { Photo, PaginatedResult } from "./interfaces";
+import PhotoModel, { Photo } from "./models/photo.model";
+import { PaginatedResult } from "./interfaces";
 
-let memoryStore: Map<number, Photo> = new Map();
+import connectDB from "./database";
+connectDB();
 
 const fetchData = async (): Promise<void> => {
   return new Promise((resolve, reject) => {
@@ -12,15 +14,28 @@ const fetchData = async (): Promise<void> => {
         data += chunk;
       });
 
-      res.on("end", () => {
-        const photos: Photo[] = JSON.parse(data);
-        photos.forEach((photo) => {
-          if (!memoryStore.has(photo.id)) memoryStore.set(photo.id, photo);
-        });
-        console.log(
-          `Memory store updated with ${memoryStore.size} unique items.`
-        );
-        resolve();
+      res.on("end", async () => {
+        try {
+          const photos: Photo[] = JSON.parse(data);
+          for (const photo of photos) {
+            const result = await PhotoModel.updateOne(
+              { id: photo.id },
+              { $set: photo },
+              { upsert: true }
+            );
+
+            if (result.upsertedCount > 0) {
+              console.log(`Inserted new document with id: ${photo.id}`);
+            } else {
+              console.log(`Updated existing document with id: ${photo.id}`);
+            }
+          }
+          console.log("Data has been fetched and stored in MongoDB");
+          resolve();
+        } catch (error) {
+          console.error("Error parsing or saving data:", error);
+          reject(error);
+        }
       });
 
       res.on("error", (err) => {
@@ -34,28 +49,36 @@ const fetchData = async (): Promise<void> => {
 setInterval(fetchData, 60000);
 fetchData();
 
-export const getPaginatedData = (
+/**
+ * Returns paginated data with optional sorting.
+ * @param page - The current page number
+ * @param limit - The number of items per page
+ * @param orderBy - The field to order by
+ * @param order - The order direction ('asc' or 'desc')
+ * @returns PaginatedResult<Photo>
+ */
+
+export const getPaginatedData = async (
   page: number = 1,
   limit: number = 10,
   orderBy: keyof Photo = "id",
   order: "asc" | "desc" = "asc"
-): PaginatedResult<Photo> => {
-  const dataArray = Array.from(memoryStore.values());
-  const totalItems = dataArray.length;
+): Promise<PaginatedResult<Photo>> => {
+  const sortOption = order === "asc" ? 1 : -1;
+
+  const totalItems = await PhotoModel.countDocuments();
+
+  const data = await PhotoModel.find()
+    .sort({ [orderBy]: sortOption })
+    .skip((page - 1) * limit)
+    .limit(limit)
+    .exec();
+
   const totalPages = Math.ceil(totalItems / limit);
-
-  dataArray.sort((a, b) => {
-    if (a[orderBy] < b[orderBy]) return order === "asc" ? -1 : 1;
-    if (a[orderBy] > b[orderBy]) return order === "asc" ? 1 : -1;
-    return 0;
-  });
-
-  const startIndex = (page - 1) * limit;
-  const paginatedData = dataArray.slice(startIndex, startIndex + limit);
 
   return {
     current_page: page,
-    data: paginatedData,
+    data,
     total_items: totalItems,
     total_pages: totalPages,
     first_page_url: `/api/photos?page=1&limit=${limit}&orderBy=${orderBy}&order=${order}`,

@@ -3,9 +3,9 @@ import url from "url";
 import { getPaginatedData } from "./dataStore";
 import { ApiResponse, Photo } from "./interfaces";
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   const reqUrl = url.parse(req.url as string, true);
 
   if (reqUrl.pathname === "/api/photos" && req.method === "GET") {
@@ -15,7 +15,7 @@ const server = http.createServer((req, res) => {
     const orderBy = (query.orderBy as keyof Photo) || "id";
     const order = (query.order as "asc" | "desc") || "asc";
 
-    const paginatedResult = getPaginatedData(page, limit, orderBy, order);
+    const paginatedResult = await getPaginatedData(page, limit, orderBy, order);
 
     const response: ApiResponse<Photo> = {
       status: "success",
@@ -27,7 +27,7 @@ const server = http.createServer((req, res) => {
     res.end(JSON.stringify(response));
   } else {
     res.writeHead(404, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ status: "error", message: "Route Not Found" }));
+    res.end(JSON.stringify({ status: "error", message: "Not Found" }));
   }
 });
 
